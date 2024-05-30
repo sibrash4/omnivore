@@ -3451,7 +3451,7 @@ const schema = gql`
     scanFeeds(input: ScanFeedsInput!): ScanFeedsResult!
     home(first: Int, after: String): HomeResult!
     subscription(id: ID!): SubscriptionResult!
-    homeFeedback: HomeFeedbackResult!
+    homeFeedback(input: HomeFeedbackFilterInput): HomeFeedbackResult!
   }
 
   schema {

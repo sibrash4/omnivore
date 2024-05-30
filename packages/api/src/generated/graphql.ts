@@ -2335,6 +2335,11 @@ export type QueryHomeArgs = {
 };
 
 
+export type QueryHomeFeedbackArgs = {
+  input?: InputMaybe<HomeFeedbackFilterInput>;
+};
+
+
 export type QueryIntegrationArgs = {
   name: Scalars['String'];
 };
@@ -6639,7 +6644,7 @@ export type QueryResolvers<ContextType = ResolverContext, ParentType extends Res
   groups?: Resolver<ResolversTypes['GroupsResult'], ParentType, ContextType>;
   hello?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   home?: Resolver<ResolversTypes['HomeResult'], ParentType, ContextType, Partial<QueryHomeArgs>>;
-  homeFeedback?: Resolver<ResolversTypes['HomeFeedbackResult'], ParentType, ContextType>;
+  homeFeedback?: Resolver<ResolversTypes['HomeFeedbackResult'], ParentType, ContextType, Partial<QueryHomeFeedbackArgs>>;
   integration?: Resolver<ResolversTypes['IntegrationResult'], ParentType, ContextType, RequireFields<QueryIntegrationArgs, 'name'>>;
   integrations?: Resolver<ResolversTypes['IntegrationsResult'], ParentType, ContextType>;
   labels?: Resolver<ResolversTypes['LabelsResult'], ParentType, ContextType>;
