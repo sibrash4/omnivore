@@ -384,7 +384,7 @@ const SubscriptionSourceHoverContent = (
         <Button
           style="plainIcon"
           onClick={(event) => {
-            sendHomeFeedback('MORE')
+            sendHomeFeedback('LESS')
             event.preventDefault()
             event.stopPropagation()
           }}
