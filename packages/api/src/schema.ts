@@ -3252,6 +3252,18 @@ const schema = gql`
 
   union HomeFeedbackResult = HomeFeedbackSuccess | HomeFeedbackError
 
+  type DeleteHomeFeedbackSuccess {
+    success: Boolean!
+  }
+
+  type DeleteHomeFeedbackError {
+    errorCodes: [ErrorCode!]!
+  }
+
+  union DeleteHomeFeedbackResult =
+      DeleteHomeFeedbackSuccess
+    | DeleteHomeFeedbackError
+
   # Mutations
   type Mutation {
     googleLogin(input: GoogleLoginInput!): LoginResult!
@@ -3379,6 +3391,7 @@ const schema = gql`
     emptyTrash: EmptyTrashResult!
     refreshHome: RefreshHomeResult!
     sendHomeFeedback(input: SendHomeFeedbackInput!): SendHomeFeedbackResult!
+    deleteHomeFeedback(id: ID!): DeleteHomeFeedbackResult!
   }
 
   # FIXME: remove sort from feedArticles after all cached tabs are closed
