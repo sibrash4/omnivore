@@ -751,6 +751,7 @@ const schema = gql`
     html: String
     color: String
     representation: RepresentationType!
+    libraryItem: Article!
   }
 
   input CreateHighlightInput {
@@ -3121,7 +3122,7 @@ const schema = gql`
 
   type HomeItemSource {
     id: ID
-    name: String!
+    name: String
     url: String
     icon: String
     type: HomeItemSourceType!
@@ -3149,6 +3150,7 @@ const schema = gql`
     canArchive: Boolean
     canDelete: Boolean
     score: Float
+    canMove: Boolean
   }
 
   type HomeSection {
@@ -3207,6 +3209,135 @@ const schema = gql`
   }
 
   union RefreshHomeResult = RefreshHomeSuccess | RefreshHomeError
+
+  union HiddenHomeSectionResult =
+      HiddenHomeSectionSuccess
+    | HiddenHomeSectionError
+
+  type HiddenHomeSectionSuccess {
+    section: HomeSection
+  }
+
+  type HiddenHomeSectionError {
+    errorCodes: [HiddenHomeSectionErrorCode!]!
+  }
+
+  enum HiddenHomeSectionErrorCode {
+    UNAUTHORIZED
+    BAD_REQUEST
+    PENDING
+  }
+
+  union HighlightsResult = HighlightsSuccess | HighlightsError
+
+  type HighlightsSuccess {
+    edges: [HighlightEdge!]!
+    pageInfo: PageInfo!
+  }
+
+  type HighlightEdge {
+    cursor: String!
+    node: Highlight!
+  }
+
+  type HighlightsError {
+    errorCodes: [HighlightsErrorCode!]!
+  }
+
+  enum HighlightsErrorCode {
+    BAD_REQUEST
+  }
+
+  type FolderPolicy {
+    id: ID!
+    folder: String!
+    action: FolderPolicyAction!
+    afterDays: Int!
+    createdAt: Date!
+    updatedAt: Date!
+  }
+
+  enum FolderPolicyAction {
+    ARCHIVE
+    DELETE
+  }
+
+  union FolderPoliciesResult = FolderPoliciesSuccess | FolderPoliciesError
+
+  type FolderPoliciesSuccess {
+    policies: [FolderPolicy!]!
+  }
+
+  type FolderPoliciesError {
+    errorCodes: [FolderPoliciesErrorCode!]!
+  }
+
+  enum FolderPoliciesErrorCode {
+    UNAUTHORIZED
+    BAD_REQUEST
+  }
+
+  input CreateFolderPolicyInput {
+    folder: String! @sanitize(minLength: 1, maxLength: 255)
+    action: FolderPolicyAction!
+    afterDays: Int!
+  }
+
+  union CreateFolderPolicyResult =
+      CreateFolderPolicySuccess
+    | CreateFolderPolicyError
+
+  type CreateFolderPolicySuccess {
+    policy: FolderPolicy!
+  }
+
+  type CreateFolderPolicyError {
+    errorCodes: [CreateFolderPolicyErrorCode!]!
+  }
+
+  enum CreateFolderPolicyErrorCode {
+    UNAUTHORIZED
+    BAD_REQUEST
+  }
+
+  union DeleteFolderPolicyResult =
+      DeleteFolderPolicySuccess
+    | DeleteFolderPolicyError
+
+  type DeleteFolderPolicySuccess {
+    success: Boolean!
+  }
+
+  type DeleteFolderPolicyError {
+    errorCodes: [DeleteFolderPolicyErrorCode!]!
+  }
+
+  enum DeleteFolderPolicyErrorCode {
+    UNAUTHORIZED
+  }
+
+  union UpdateFolderPolicyResult =
+      UpdateFolderPolicySuccess
+    | UpdateFolderPolicyError
+
+  type UpdateFolderPolicySuccess {
+    policy: FolderPolicy!
+  }
+
+  type UpdateFolderPolicyError {
+    errorCodes: [UpdateFolderPolicyErrorCode!]!
+  }
+
+  enum UpdateFolderPolicyErrorCode {
+    UNAUTHORIZED
+    BAD_REQUEST
+  }
+
+  input UpdateFolderPolicyInput {
+    id: ID!
+    action: FolderPolicyAction
+    afterDays: Int
+  }
 
   # Mutations
   type Mutation {
@@ -3334,6 +3465,13 @@ const schema = gql`
     editDiscoverFeed(input: EditDiscoverFeedInput!): EditDiscoverFeedResult!
     emptyTrash: EmptyTrashResult!
     refreshHome: RefreshHomeResult!
+    createFolderPolicy(
+      input: CreateFolderPolicyInput!
+    ): CreateFolderPolicyResult!
+    updateFolderPolicy(
+      input: UpdateFolderPolicyInput!
+    ): UpdateFolderPolicyResult!
+    deleteFolderPolicy(id: ID!): DeleteFolderPolicyResult!
   }
 
   # FIXME: remove sort from feedArticles after all cached tabs are closed
@@ -3406,6 +3544,9 @@ const schema = gql`
     scanFeeds(input: ScanFeedsInput!): ScanFeedsResult!
     home(first: Int, after: String): HomeResult!
     subscription(id: ID!): SubscriptionResult!
+    hiddenHomeSection: HiddenHomeSectionResult!
+    highlights(after: String, first: Int, query: String): HighlightsResult!
+    folderPolicies: FolderPoliciesResult!
   }
 
   schema {

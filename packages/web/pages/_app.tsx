@@ -23,6 +23,7 @@ import { updateTheme } from '../lib/themeUpdater'
 import { ThemeId } from '../components/tokens/stitches.config'
 import { posthog } from 'posthog-js'
 import { GoogleReCaptchaProvider } from '@google-recaptcha/react'
+import { SWRConfig } from 'swr'
 
 TopBarProgress.config({
   barColors: {
@@ -41,7 +42,14 @@ const generateActions = (router: NextRouter) => {
       name: 'Go to Home (Library) ',
       shortcut: ['g', 'h'],
       keywords: 'go home',
-      perform: () => router?.push('/home'),
+      perform: () => {
+        const navReturn = window.localStorage.getItem('nav-return')
+        if (navReturn) {
+          router.push(navReturn)
+          return
+        }
+        router?.push('/l/home')
+      },
     },
     {
       id: 'lightTheme',

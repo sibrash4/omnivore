@@ -28,7 +28,9 @@ import {
 import { BulkActionData, BULK_ACTION_JOB_NAME } from '../jobs/bulk_action'
 import { CallWebhookJobData, CALL_WEBHOOK_JOB_NAME } from '../jobs/call_webhook'
 import { SendEmailJobData, SEND_EMAIL_JOB } from '../jobs/email/send_email'
+import { EXPIRE_FOLDERS_JOB_NAME } from '../jobs/expire_folders'
 import { THUMBNAIL_JOB } from '../jobs/find_thumbnail'
+import { GENERATE_PREVIEW_CONTENT_JOB } from '../jobs/generate_preview_content'
 import { EXPORT_ALL_ITEMS_JOB_NAME } from '../jobs/integration/export_all_items'
 import {
   ExportItemJobData,
@@ -40,6 +42,7 @@ import {
   PROCESS_YOUTUBE_TRANSCRIPT_JOB_NAME,
   PROCESS_YOUTUBE_VIDEO_JOB_NAME,
 } from '../jobs/process-youtube-video'
+import { PRUNE_TRASH_JOB } from '../jobs/prune_trash'
 import {
   queueRSSRefreshFeedJob,
   REFRESH_ALL_FEEDS_JOB_NAME,
@@ -110,6 +113,9 @@ export const getJobPriority = (jobName: string): number => {
     case EXPORT_ALL_ITEMS_JOB_NAME:
     case REFRESH_ALL_FEEDS_JOB_NAME:
     case THUMBNAIL_JOB:
+    case GENERATE_PREVIEW_CONTENT_JOB:
+    case PRUNE_TRASH_JOB:
+    case EXPIRE_FOLDERS_JOB_NAME:
       return 100
 
     default:
@@ -1022,6 +1028,69 @@ export const enqueueScoreJob = async (data: ScoreLibraryItemJobData) => {
     priority: getJobPriority(SCORE_LIBRARY_ITEM_JOB),
     attempts: 3,
   })
+}
+
+export const enqueueGeneratePreviewContentJob = async (
+  libraryItemId: string,
+  userId: string
+) => {
+  const queue = await getBackendQueue()
+  if (!queue) {
+    return undefined
+  }
+
+  return queue.add(
+    GENERATE_PREVIEW_CONTENT_JOB,
+    {
+      libraryItemId,
+      userId,
+    },
+    {
+      jobId: `${GENERATE_PREVIEW_CONTENT_JOB}_${libraryItemId}_${JOB_VERSION}`,
+      removeOnComplete: true,
+      removeOnFail: true,
+      priority: getJobPriority(GENERATE_PREVIEW_CONTENT_JOB),
+      attempts: 3,
+    }
+  )
+}
+
+export const enqueuePruneTrashJob = async (numDays: number) => {
+  const queue = await getBackendQueue()
+  if (!queue) {
+    return undefined
+  }
+
+  return queue.add(
+    PRUNE_TRASH_JOB,
+    { numDays },
+    {
+      jobId: `${PRUNE_TRASH_JOB}_${numDays}_${JOB_VERSION}`,
+      removeOnComplete: true,
+      removeOnFail: true,
+      priority: getJobPriority(PRUNE_TRASH_JOB),
+      attempts: 3,
+    }
+  )
+}
+
+export const enqueueExpireFoldersJob = async () => {
+  const queue = await getBackendQueue()
+  if (!queue) {
+    return undefined
+  }
+
+  return queue.add(
+    EXPIRE_FOLDERS_JOB_NAME,
+    {},
+    {
+      jobId: `${EXPIRE_FOLDERS_JOB_NAME}_${JOB_VERSION}`,
+      removeOnComplete: true,
+      removeOnFail: true,
+      priority: getJobPriority(EXPIRE_FOLDERS_JOB_NAME),
+      attempts: 3,
+    }
+  )
 }
 
 export default createHttpTaskWithToken

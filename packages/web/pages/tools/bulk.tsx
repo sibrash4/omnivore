@@ -33,7 +33,7 @@ export default function BulkPerformer(): JSX.Element {
   const [errorMessage, setErrorMessage] = useState<string | undefined>()
   const [runningState, setRunningState] = useState<RunningState>('none')
 
-  const { itemsPages, isValidating } = useGetLibraryItemsQuery({
+  const { itemsPages, isValidating } = useGetLibraryItemsQuery('', {
     searchQuery: query,
     limit: 1,
     sortDescending: false,
@@ -202,7 +202,7 @@ export default function BulkPerformer(): JSX.Element {
             <VStack css={{ width: '100%' }} alignment="center">
               <Button
                 onClick={(e) => {
-                  window.location.href = '/home'
+                  window.location.href = '/l/home'
                   e.preventDefault()
                 }}
                 style="ctaDarkYellow"

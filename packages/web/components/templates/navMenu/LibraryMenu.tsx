@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { StyledText } from '../../elements/StyledText'
 import { Box, HStack, SpanBox, VStack } from '../../elements/LayoutPrimitives'
 import { Button } from '../../elements/Button'
-import { Circle, DotsThree, MagnifyingGlass, X } from 'phosphor-react'
+import { Circle, DotsThree, MagnifyingGlass, X } from '@phosphor-icons/react'
 import {
   Subscription,
   SubscriptionType,
@@ -25,7 +25,7 @@ import { HomeIcon } from '../../elements/icons/HomeIcon'
 import { LibraryIcon } from '../../elements/icons/LibraryIcon'
 import { HighlightsIcon } from '../../elements/icons/HighlightsIcon'
 import { CoverImage } from '../../elements/CoverImage'
-import { Shortcut } from '../../../pages/settings/shortcuts'
+import { Shortcut } from './NavigationMenu'
 import { OutlinedLabelChip } from '../../elements/OutlinedLabelChip'
 import { NewsletterIcon } from '../../elements/icons/NewsletterIcon'
 import { Dropdown, DropdownOption } from '../../elements/DropdownElements'
@@ -46,55 +46,6 @@ type LibraryFilterMenuProps = {
 }
 
 export function LibraryFilterMenu(props: LibraryFilterMenuProps): JSX.Element {
-  const [labels, setLabels] = usePersistedState<Label[]>({
-    key: 'menu-labels',
-    isSessionStorage: false,
-    initialValue: [],
-  })
-  const [savedSearches, setSavedSearches] = usePersistedState<SavedSearch[]>({
-    key: 'menu-searches',
-    isSessionStorage: false,
-    initialValue: [],
-  })
-  const [subscriptions, setSubscriptions] = usePersistedState<Subscription[]>({
-    key: 'menu-subscriptions',
-    isSessionStorage: false,
-    initialValue: [],
-  })
-  const labelsResponse = useGetLabelsQuery()
-  const searchesResponse = useGetSavedSearchQuery()
-  const subscriptionsResponse = useGetSubscriptionsQuery()
-
-  useEffect(() => {
-    if (
-      !labelsResponse.error &&
-      !labelsResponse.isLoading &&
-      labelsResponse.labels
-    ) {
-      setLabels(labelsResponse.labels)
-    }
-  }, [setLabels, labelsResponse])
-
-  useEffect(() => {
-    if (
-      !subscriptionsResponse.error &&
-      !subscriptionsResponse.isLoading &&
-      subscriptionsResponse.subscriptions
-    ) {
-      setSubscriptions(subscriptionsResponse.subscriptions)
-    }
-  }, [setSubscriptions, subscriptionsResponse])
-
-  useEffect(() => {
-    if (
-      !searchesResponse.error &&
-      !searchesResponse.isLoading &&
-      searchesResponse.savedSearches
-    ) {
-      setSavedSearches(searchesResponse.savedSearches)
-    }
-  }, [setSavedSearches, searchesResponse])
-
   return (
     <>
       <Box
@@ -210,10 +161,10 @@ const LibraryNav = (props: LibraryFilterMenuProps): JSX.Element => {
         filterTerm="in:library use:folders"
         icon={<LibraryIcon color={theme.colors.ctaBlue.toString()} />}
       />
-      <NavButton
+      <NavRedirectButton
         {...props}
         text="Highlights"
-        filterTerm="in:all has:highlights mode:highlights"
+        redirectLocation={'/highlights'}
         icon={<HighlightsIcon color={theme.colors.highlight.toString()} />}
       />
       <NavRedirectButton
@@ -233,6 +184,8 @@ const Shortcuts = (props: LibraryFilterMenuProps): JSX.Element => {
     isSessionStorage: false,
     initialValue: [],
   })
+
+  console.log('got shortcuts: ', shortcuts)
 
   // const shortcuts: Shortcut[] = [
   //   {

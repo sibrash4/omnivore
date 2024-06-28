@@ -5,6 +5,7 @@ import {
   DeepPartial,
   EntityManager,
   FindOptionsWhere,
+  In,
   ObjectLiteral,
 } from 'typeorm'
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity'
@@ -18,7 +19,15 @@ import { env } from '../env'
 import { BulkActionType, InputMaybe, SortParams } from '../generated/graphql'
 import { createPubSubClient, EntityEvent, EntityType } from '../pubsub'
 import { redisDataSource } from '../redis_data_source'
-import { authTrx, getColumns, queryBuilderToRawSql } from '../repository'
+import {
+  authTrx,
+  getColumns,
+  paramtersToObject,
+  queryBuilderToRawSql,
+  Select,
+  Sort,
+  SortOrder,
+} from '../repository'
 import { libraryItemRepository } from '../repository/library_item'
 import { Merge, PickTuple } from '../util'
 import { enqueueBulkUploadContentJob } from '../utils/createTask'
@@ -122,44 +131,21 @@ export enum SortBy {
   WORDS_COUNT = 'wordscount',
 }
 
-export enum SortOrder {
-  ASCENDING = 'ASC',
-  DESCENDING = 'DESC',
-}
-
-export interface Sort {
-  by: string
-  order?: SortOrder
-  nulls?: 'NULLS FIRST' | 'NULLS LAST'
-}
-
-interface Select {
-  column: string
-  alias?: string
-}
-
 const readingProgressDataSource = new ReadingProgressDataSource()
 
 export const batchGetLibraryItems = async (ids: readonly string[]) => {
-  const items = await findLibraryItemsByIds(ids as string[], undefined, {
-    select: [
-      'id',
-      'title',
-      'author',
-      'thumbnail',
-      'wordCount',
-      'savedAt',
-      'originalUrl',
-      'directionality',
-      'description',
-      'subscription',
-      'siteName',
-      'siteIcon',
-      'archivedAt',
-      'deletedAt',
-      'slug',
-    ],
-  })
+  // select all columns except content
+  const select = getColumns(libraryItemRepository).filter(
+    (select) => ['originalContent', 'readableContent'].indexOf(select) === -1
+  )
+  const items = await authTrx(async (tx) =>
+    tx.getRepository(LibraryItem).find({
+      select,
+      where: {
+        id: In(ids as string[]),
+      },
+    })
+  )
 
   return ids.map((id) => items.find((item) => item.id === id) || undefined)
 }
@@ -195,10 +181,6 @@ const handleNoCase = (value: string) => {
   }
 
   throw new Error(`Unexpected keyword: ${value}`)
-}
-
-const paramtersToObject = (parameters: ObjectLiteral[]) => {
-  return parameters.reduce((a, b) => ({ ...a, ...b }), {})
 }
 
 export const sortParamsToSort = (
@@ -902,6 +884,7 @@ export const softDeleteLibraryItem = async (
       await itemRepo.update(id, {
         state: LibraryItemState.Deleted,
         deletedAt: new Date(),
+        seenAt: new Date(),
       })
 
       return itemRepo.findOneByOrFail({ id })
@@ -1362,17 +1345,6 @@ export const deleteLibraryItemsByUserId = async (userId: string) => {
       }),
     undefined,
     userId
-  )
-}
-
-export const deleteLibraryItemsByAdmin = async (
-  criteria: FindOptionsWhere<LibraryItem>
-) => {
-  return authTrx(
-    async (tx) => tx.withRepository(libraryItemRepository).delete(criteria),
-    undefined,
-    undefined,
-    'admin'
   )
 }
 

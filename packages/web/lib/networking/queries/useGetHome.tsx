@@ -35,6 +35,7 @@ export type HomeItem = {
   canComment?: boolean
   canDelete?: boolean
   canSave?: boolean
+  canMove?: boolean
   canShare?: boolean
   dir?: string
 
@@ -105,6 +106,7 @@ export function useGetHomeItems(): HomeItemResponse {
                   type
                 }
                 canSave
+                canMove
                 canComment
                 canShare
                 canArchive
@@ -134,7 +136,8 @@ export function useGetHomeItems(): HomeItemResponse {
 
   const { data, error, isValidating, mutate } = useSWR(
     [query, variables.first, variables.after],
-    makeGqlFetcher(variables)
+    makeGqlFetcher(query, variables),
+    {}
   )
 
   if (error) {
@@ -146,8 +149,6 @@ export function useGetHomeItems(): HomeItemResponse {
   }
 
   const result = data as HomeResult
-  console.log('result: ', result)
-
   if (result && result.home.errorCodes) {
     const errorCodes = result.home.errorCodes
     return {
@@ -158,7 +159,6 @@ export function useGetHomeItems(): HomeItemResponse {
   }
 
   if (result && result.home && result.home.edges) {
-    console.log('data', result.home)
     return {
       mutate,
       error: false,

@@ -307,6 +307,27 @@ type CreateArticleSuccess {
   user: User!
 }
 
+type CreateFolderPolicyError {
+  errorCodes: [CreateFolderPolicyErrorCode!]!
+}
+
+enum CreateFolderPolicyErrorCode {
+  BAD_REQUEST
+  UNAUTHORIZED
+}
+
+input CreateFolderPolicyInput {
+  action: FolderPolicyAction!
+  afterDays: Int!
+  folder: String!
+}
+
+union CreateFolderPolicyResult = CreateFolderPolicyError | CreateFolderPolicySuccess
+
+type CreateFolderPolicySuccess {
+  policy: FolderPolicy!
+}
+
 type CreateGroupError {
   errorCodes: [CreateGroupErrorCode!]!
 }
@@ -555,6 +576,20 @@ union DeleteFilterResult = DeleteFilterError | DeleteFilterSuccess
 
 type DeleteFilterSuccess {
   filter: Filter!
+}
+
+type DeleteFolderPolicyError {
+  errorCodes: [DeleteFolderPolicyErrorCode!]!
+}
+
+enum DeleteFolderPolicyErrorCode {
+  UNAUTHORIZED
+}
+
+union DeleteFolderPolicyResult = DeleteFolderPolicyError | DeleteFolderPolicySuccess
+
+type DeleteFolderPolicySuccess {
+  success: Boolean!
 }
 
 type DeleteHighlightError {
@@ -972,6 +1007,35 @@ type FiltersSuccess {
   filters: [Filter!]!
 }
 
+type FolderPoliciesError {
+  errorCodes: [FolderPoliciesErrorCode!]!
+}
+
+enum FolderPoliciesErrorCode {
+  BAD_REQUEST
+  UNAUTHORIZED
+}
+
+union FolderPoliciesResult = FolderPoliciesError | FolderPoliciesSuccess
+
+type FolderPoliciesSuccess {
+  policies: [FolderPolicy!]!
+}
+
+type FolderPolicy {
+  action: FolderPolicyAction!
+  afterDays: Int!
+  createdAt: Date!
+  folder: String!
+  id: ID!
+  updatedAt: Date!
+}
+
+enum FolderPolicyAction {
+  ARCHIVE
+  DELETE
+}
+
 type GenerateApiKeyError {
   errorCodes: [GenerateApiKeyErrorCode!]!
 }
@@ -1107,6 +1171,22 @@ type GroupsSuccess {
   groups: [RecommendationGroup!]!
 }
 
+type HiddenHomeSectionError {
+  errorCodes: [HiddenHomeSectionErrorCode!]!
+}
+
+enum HiddenHomeSectionErrorCode {
+  BAD_REQUEST
+  PENDING
+  UNAUTHORIZED
+}
+
+union HiddenHomeSectionResult = HiddenHomeSectionError | HiddenHomeSectionSuccess
+
+type HiddenHomeSectionSuccess {
+  section: HomeSection
+}
+
 type Highlight {
   annotation: String
   color: String
@@ -1117,6 +1197,7 @@ type Highlight {
   html: String
   id: ID!
   labels: [Label!]
+  libraryItem: Article!
   patch: String
   prefix: String
   quote: String
@@ -1129,6 +1210,11 @@ type Highlight {
   type: HighlightType!
   updatedAt: Date
   user: User!
+}
+
+type HighlightEdge {
+  cursor: String!
+  node: Highlight!
 }
 
 type HighlightReply {
@@ -1148,6 +1234,21 @@ enum HighlightType {
   HIGHLIGHT
   NOTE
   REDACTION
+}
+
+type HighlightsError {
+  errorCodes: [HighlightsErrorCode!]!
+}
+
+enum HighlightsErrorCode {
+  BAD_REQUEST
+}
+
+union HighlightsResult = HighlightsError | HighlightsSuccess
+
+type HighlightsSuccess {
+  edges: [HighlightEdge!]!
+  pageInfo: PageInfo!
 }
 
 type HomeEdge {
@@ -1171,6 +1272,7 @@ type HomeItem {
   canArchive: Boolean
   canComment: Boolean
   canDelete: Boolean
+  canMove: Boolean
   canSave: Boolean
   canShare: Boolean
   date: Date!
@@ -1192,7 +1294,7 @@ type HomeItem {
 type HomeItemSource {
   icon: String
   id: ID
-  name: String!
+  name: String
   type: HomeItemSourceType!
   url: String
 }
@@ -1518,6 +1620,7 @@ type Mutation {
   bulkAction(action: BulkActionType!, arguments: JSON, async: Boolean, expectedCount: Int, labelIds: [ID!], query: String!): BulkActionResult!
   createArticle(input: CreateArticleInput!): CreateArticleResult!
   createArticleSavingRequest(input: CreateArticleSavingRequestInput!): CreateArticleSavingRequestResult!
+  createFolderPolicy(input: CreateFolderPolicyInput!): CreateFolderPolicyResult!
   createGroup(input: CreateGroupInput!): CreateGroupResult!
   createHighlight(input: CreateHighlightInput!): CreateHighlightResult!
   createLabel(input: CreateLabelInput!): CreateLabelResult!
@@ -1526,6 +1629,7 @@ type Mutation {
   deleteDiscoverArticle(input: DeleteDiscoverArticleInput!): DeleteDiscoverArticleResult!
   deleteDiscoverFeed(input: DeleteDiscoverFeedInput!): DeleteDiscoverFeedResult!
   deleteFilter(id: ID!): DeleteFilterResult!
+  deleteFolderPolicy(id: ID!): DeleteFolderPolicyResult!
   deleteHighlight(highlightId: ID!): DeleteHighlightResult!
   deleteIntegration(id: ID!): DeleteIntegrationResult!
   deleteLabel(id: ID!): DeleteLabelResult!
@@ -1575,6 +1679,7 @@ type Mutation {
   unsubscribe(name: String!, subscriptionId: ID): UnsubscribeResult!
   updateEmail(input: UpdateEmailInput!): UpdateEmailResult!
   updateFilter(input: UpdateFilterInput!): UpdateFilterResult!
+  updateFolderPolicy(input: UpdateFolderPolicyInput!): UpdateFolderPolicyResult!
   updateHighlight(input: UpdateHighlightInput!): UpdateHighlightResult!
   updateLabel(input: UpdateLabelInput!): UpdateLabelResult!
   updateNewsletterEmail(input: UpdateNewsletterEmailInput!): UpdateNewsletterEmailResult!
@@ -1717,10 +1822,13 @@ type Query {
   discoverTopics: GetDiscoverTopicResults!
   feeds(input: FeedsInput!): FeedsResult!
   filters: FiltersResult!
+  folderPolicies: FolderPoliciesResult!
   getDiscoverFeedArticles(after: String, discoverTopicId: String!, feedId: ID, first: Int): GetDiscoverFeedArticleResults!
   getUserPersonalization: GetUserPersonalizationResult!
   groups: GroupsResult!
   hello: String
+  hiddenHomeSection: HiddenHomeSectionResult!
+  highlights(after: String, first: Int, query: String): HighlightsResult!
   home(after: String, first: Int): HomeResult!
   integration(name: String!): IntegrationResult!
   integrations: IntegrationsResult!
@@ -2794,6 +2902,27 @@ union UpdateFilterResult = UpdateFilterError | UpdateFilterSuccess
 
 type UpdateFilterSuccess {
   filter: Filter!
+}
+
+type UpdateFolderPolicyError {
+  errorCodes: [UpdateFolderPolicyErrorCode!]!
+}
+
+enum UpdateFolderPolicyErrorCode {
+  BAD_REQUEST
+  UNAUTHORIZED
+}
+
+input UpdateFolderPolicyInput {
+  action: FolderPolicyAction
+  afterDays: Int
+  id: ID!
+}
+
+union UpdateFolderPolicyResult = UpdateFolderPolicyError | UpdateFolderPolicySuccess
+
+type UpdateFolderPolicySuccess {
+  policy: FolderPolicy!
 }
 
 type UpdateHighlightError {

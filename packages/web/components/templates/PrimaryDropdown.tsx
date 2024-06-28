@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router'
-import { Moon, Sun } from 'phosphor-react'
+import { Moon, Sun } from '@phosphor-icons/react'
 import { ReactNode, useCallback } from 'react'
 import { useGetViewerQuery } from '../../lib/networking/queries/useGetViewerQuery'
 import { Avatar } from '../elements/Avatar'
@@ -16,10 +16,10 @@ import { StyledText } from '../elements/StyledText'
 import { styled, theme, ThemeId } from '../tokens/stitches.config'
 import { LayoutType } from './homeFeed/HomeFeedContainer'
 import { useCurrentTheme } from '../../lib/hooks/useCurrentTheme'
+import { ThemeSelector } from './article/ReaderSettingsControl'
 
 type PrimaryDropdownProps = {
   children?: ReactNode
-  showThemeSection: boolean
 
   layout?: LayoutType
   updateLayout?: (layout: LayoutType) => void
@@ -53,9 +53,10 @@ const TriggerButton = (props: TriggerButtonProps): JSX.Element => {
         alignItems: 'center',
         borderRadius: '5px',
         height: '32px',
-        padding: '5px',
+        px: '10px',
+        py: '20px',
         '&:hover': {
-          bg: '$thLibraryMenuFooterHover',
+          bg: '$thLeftMenuBackground',
           opacity: '0.7px',
         },
       }}
@@ -130,7 +131,7 @@ export function PrimaryDropdown(props: PrimaryDropdownProps): JSX.Element {
       triggerElement={
         props.children ?? <TriggerButton name={viewerData?.me?.name} />
       }
-      css={{ width: '240px', ml: '15px' }}
+      css={{ width: '240px', ml: '15px', bg: '$thNavMenuFooter' }}
     >
       <HStack
         alignment="center"
@@ -192,7 +193,7 @@ export function PrimaryDropdown(props: PrimaryDropdownProps): JSX.Element {
         </VStack>
       </HStack>
       <DropdownSeparator />
-      {props.showThemeSection && <ThemeSection {...props} />}
+      <ThemeSection {...props} />
       <DropdownOption
         onSelect={() => headerDropdownActionHandler('navigate-to-install')}
         title="Install"
@@ -261,7 +262,21 @@ export const StyledToggleButton = styled('button', {
   },
 })
 
-function ThemeSection(props: PrimaryDropdownProps): JSX.Element {
+const ThemeSection = (props: PrimaryDropdownProps): JSX.Element => {
+  const { currentTheme, setCurrentTheme, currentThemeIsDark } =
+    useCurrentTheme()
+
+  return (
+    <>
+      <VStack css={{ width: '100%' }}>
+        <ThemeSelector />
+      </VStack>
+      <DropdownSeparator />
+    </>
+  )
+}
+
+function LegacyMenuThemeSection(props: PrimaryDropdownProps): JSX.Element {
   const { currentTheme, setCurrentTheme, currentThemeIsDark } =
     useCurrentTheme()
 

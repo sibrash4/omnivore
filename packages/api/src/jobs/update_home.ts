@@ -1,17 +1,19 @@
+import client from 'prom-client'
 import { LibraryItem } from '../entity/library_item'
 import { PublicItem } from '../entity/public_item'
-import { Subscription } from '../entity/subscription'
+import { Subscription, SubscriptionType } from '../entity/subscription'
 import { User } from '../entity/user'
+import { registerMetric } from '../prometheus'
 import { redisDataSource } from '../redis_data_source'
 import { findUnseenPublicItems } from '../services/home'
 import { searchLibraryItems } from '../services/library_item'
-import { Feature, getScores } from '../services/score'
+import { Feature, scoreClient } from '../services/score'
 import { findSubscriptionsByNames } from '../services/subscriptions'
 import { findActiveUser } from '../services/user'
 import { lanaugeToCode } from '../utils/helpers'
 import { logError, logger } from '../utils/logger'
 
-export const UPDATE_HOME_JOB = 'UPDATE_HOME_JOB'
+export const UPDATE_HOME_JOB = 'update-home'
 
 export interface UpdateHomeJobData {
   userId: string
@@ -39,6 +41,9 @@ interface Candidate {
   subscription?: {
     name: string
     type: string
+    autoAddToLibrary?: boolean | null
+    createdAt: Date
+    fetchContent?: boolean | null
   }
 }
 
@@ -100,23 +105,26 @@ const publicItemToCandidate = (item: PublicItem): Candidate => ({
   subscription: {
     name: item.source.name,
     type: item.source.type,
+    createdAt: item.source.createdAt,
   },
   score: 0,
 })
 
-const selectCandidates = async (user: User): Promise<Array<Candidate>> => {
-  const userId = user.id
-  // get last 100 library items saved and not seen by user
+const getJustAddedCandidates = async (
+  userId: string,
+  limit = 5 // limit to 5 just added candidates
+): Promise<Array<Candidate>> => {
   const libraryItems = await searchLibraryItems(
     {
-      size: 100,
+      size: limit,
       includeContent: false,
-      query: `-is:seen wordsCount:>0`,
+      useFolders: true, // only show items in inbox folder
+      query: `in:inbox saved:"this week"`,
     },
     userId
   )
 
-  logger.info(`Found ${libraryItems.length} library items`)
+  logger.info(`Found ${libraryItems.length} just added library items`)
 
   // get subscriptions for the library items
   const subscriptionNames = libraryItems
@@ -128,10 +136,46 @@ const selectCandidates = async (user: User): Promise<Array<Candidate>> => {
     subscriptionNames
   )
 
-  // map library items to candidates and limit to 70
-  const privateCandidates: Array<Candidate> = libraryItems
-    .map((item) => libraryItemToCandidate(item, subscriptions))
-    .slice(0, 70)
+  // map library items to candidates
+  const justAddedCandidates: Array<Candidate> = libraryItems.map((item) =>
+    libraryItemToCandidate(item, subscriptions)
+  )
+
+  return justAddedCandidates
+}
+
+const selectCandidates = async (
+  user: User,
+  excludes: Array<string> = [],
+  limit = 100
+): Promise<Array<Candidate>> => {
+  const userId = user.id
+  // get last 100 library items saved and not seen by user
+  const libraryItems = await searchLibraryItems(
+    {
+      size: limit,
+      includeContent: false,
+      query: `in:inbox -is:seen -includes:${excludes.join(',')}`,
+    },
+    userId
+  )
+
+  logger.info(`Found ${libraryItems.length} not just added library items`)
+
+  // get subscriptions for the library items
+  const subscriptionNames = libraryItems
+    .filter((item) => !!item.subscription)
+    .map((item) => item.subscription as string)
+
+  const subscriptions = await findSubscriptionsByNames(
+    userId,
+    subscriptionNames
+  )
+
+  // map library items to candidates
+  const privateCandidates: Array<Candidate> = libraryItems.map((item) =>
+    libraryItemToCandidate(item, subscriptions)
+  )
   const privateCandidatesSize = privateCandidates.length
 
   logger.info(`Found ${privateCandidatesSize} private candidates`)
@@ -164,11 +208,9 @@ const rankCandidates = async (
     return candidates
   }
 
-  const unscoredCandidates = candidates.filter((item) => item.score === 0)
-
   const data = {
     user_id: userId,
-    items: unscoredCandidates.reduce((acc, item) => {
+    items: candidates.reduce((acc, item) => {
       acc[item.id] = {
         library_item_id: item.id,
         title: item.title,
@@ -184,31 +226,45 @@ const rankCandidates = async (
         word_count: item.wordCount,
         published_at: item.publishedAt,
         subscription: item.subscription?.name,
+        inbox_folder: item.folder === 'inbox',
+        is_feed: item.subscription?.type === SubscriptionType.Rss,
+        is_newsletter: item.subscription?.type === SubscriptionType.Newsletter,
+        is_subscription: !!item.subscription,
+        item_word_count: item.wordCount,
+        subscription_count: 0,
+        subscription_auto_add_to_library: item.subscription?.autoAddToLibrary,
+        subscription_fetch_content: item.subscription?.fetchContent,
+        days_since_subscribed: item.subscription
+          ? Math.floor(
+              (Date.now() - item.subscription.createdAt.getTime()) /
+                (1000 * 60 * 60 * 24)
+            )
+          : undefined,
       } as Feature
       return acc
     }, {} as Record<string, Feature>),
   }
 
-  const newScores = await getScores(data)
+  const scores = await scoreClient.getScores(data)
   // update scores for candidates
-  unscoredCandidates.forEach((item) => {
-    item.score = newScores[item.id]['score'] || 0
+  candidates.forEach((item) => {
+    item.score = scores[item.id]['score'] || 0
   })
 
-  // rank candidates by score in ascending order
-  candidates.sort((a, b) => a.score - b.score)
+  // rank candidates by score in descending order
+  candidates.sort((a, b) => b.score - a.score)
 
   return candidates
 }
 
 const redisKey = (userId: string) => `home:${userId}`
-const MAX_FEED_ITEMS = 500
+const emptyHomeKey = (key: string) => `${key}:empty`
 
 export const getHomeSections = async (
   userId: string,
-  limit: number,
+  limit = 100,
   maxScore?: number
-): Promise<Array<{ member: Section; score: number }>> => {
+): Promise<Array<{ member: Section; score: number }> | null> => {
   const redisClient = redisDataSource.redisClient
   if (!redisClient) {
     throw new Error('Redis client not available')
@@ -229,6 +285,19 @@ export const getHomeSections = async (
     0,
     limit
   )
+
+  if (!results.length) {
+    logger.info('No sections found in redis')
+    // check if the feed is empty
+    const isEmpty = await redisClient.exists(emptyHomeKey(key))
+    if (isEmpty) {
+      logger.info('Empty feed')
+      return []
+    }
+
+    logger.info('Feed not found')
+    return null
+  }
 
   const sections = []
   for (let i = 0; i < results.length; i += 2) {
@@ -262,6 +331,14 @@ const appendSectionsToHome = async (
   }
 
   const key = redisKey(userId)
+  const emptyKey = emptyHomeKey(key)
+
+  if (!sections.length) {
+    logger.info('No available sections to add')
+    // set expiration to 1 hour
+    await redisClient.set(emptyKey, 'true', 'EX', 60 * 60)
+    return
+  }
 
   // store candidates in redis sorted set
   const pipeline = redisClient.pipeline()
@@ -276,41 +353,25 @@ const appendSectionsToHome = async (
     JSON.stringify(section),
   ])
 
+  // sections expire in 24 hours
+  pipeline.expire(key, 24 * 60 * 60)
+
   // add section to the sorted set
   pipeline.zadd(key, ...scoreMembers)
 
-  // remove expired sections and sections expire in 24 hours
-  const ttl = 86_400_000
-  pipeline.zremrangebyscore(key, '-inf', Date.now() - ttl)
+  pipeline.del(emptyKey)
 
-  // keep only the top MAX_FEED_ITEMS items
-  pipeline.zremrangebyrank(key, 0, -(MAX_FEED_ITEMS + 1))
+  // keep only the new sections and remove the oldest ones
+  pipeline.zremrangebyrank(key, 0, -(sections.length + 1))
 
   logger.info('Adding home sections to redis')
   await pipeline.exec()
 }
 
-const mixHomeItems = (rankedHomeItems: Array<Candidate>): Array<Section> => {
-  // find the median word count
-  const wordCounts = rankedHomeItems.map((item) => item.wordCount)
-  wordCounts.sort((a, b) => a - b)
-  const medianWordCount = wordCounts[Math.floor(wordCounts.length / 2)]
-  // separate items into two groups based on word count
-  const shortItems: Array<Candidate> = []
-  const longItems: Array<Candidate> = []
-  for (const item of rankedHomeItems) {
-    if (item.wordCount < medianWordCount) {
-      shortItems.push(item)
-    } else {
-      longItems.push(item)
-    }
-  }
-  // initialize empty batches
-  const batches: Array<Array<Candidate>> = Array.from(
-    { length: Math.floor(rankedHomeItems.length / 10) },
-    () => []
-  )
-
+const mixHomeItems = (
+  justAddedCandidates: Array<Candidate>,
+  rankedHomeItems: Array<Candidate>
+): Array<Section> => {
   const checkConstraints = (batch: Array<Candidate>, item: Candidate) => {
     const titleCount = batch.filter((i) => i.title === item.title).length
     const authorCount = batch.filter((i) => i.author === item.author).length
@@ -328,14 +389,26 @@ const mixHomeItems = (rankedHomeItems: Array<Candidate>): Array<Section> => {
     )
   }
 
+  const candidateToItem = (candidate: Candidate): Item => ({
+    id: candidate.id,
+    type: candidate.type,
+    score: candidate.score,
+  })
+
   const distributeItems = (
     items: Array<Candidate>,
     batches: Array<Array<Candidate>>
   ) => {
+    if (batches.length === 0) {
+      return
+    }
+
+    const batchSize = Math.ceil(items.length / batches.length)
+
     for (const item of items) {
       let added = false
       for (const batch of batches) {
-        if (batch.length < 5 && checkConstraints(batch, item)) {
+        if (batch.length < batchSize && checkConstraints(batch, item)) {
           batch.push(item)
           added = true
           break
@@ -344,7 +417,7 @@ const mixHomeItems = (rankedHomeItems: Array<Candidate>): Array<Section> => {
 
       if (!added) {
         for (const batch of batches) {
-          if (batch.length < 10) {
+          if (batch.length < batchSize) {
             batch.push(item)
             break
           }
@@ -353,34 +426,77 @@ const mixHomeItems = (rankedHomeItems: Array<Candidate>): Array<Section> => {
     }
   }
 
-  // distribute quick link items first
-  distributeItems(shortItems, batches)
-  distributeItems(longItems, batches)
+  const topCandidates = rankedHomeItems.slice(0, 50)
+
+  // find the median word count
+  const wordCountThreshold = 500
+  // separate items into two groups based on word count
+  const shortItems: Array<Candidate> = []
+  const longItems: Array<Candidate> = []
+  for (const item of topCandidates) {
+    if (item.wordCount < wordCountThreshold) {
+      shortItems.push(item)
+    } else {
+      longItems.push(item)
+    }
+  }
+
+  // initialize empty batches
+  const numOfBatches = 10
+  const batches = {
+    short: Array.from({ length: numOfBatches }, () => []) as Array<
+      Array<Candidate>
+    >,
+    long: Array.from({ length: numOfBatches }, () => []) as Array<
+      Array<Candidate>
+    >,
+  }
+
+  batches.short.length && distributeItems(shortItems, batches.short)
+  batches.long.length && distributeItems(longItems, batches.long)
 
   // convert batches to sections
   const sections = []
-  for (const batch of batches) {
-    // create a section for all quick links
+  const hiddenCandidates = rankedHomeItems.slice(50)
+
+  hiddenCandidates.length &&
     sections.push({
-      items: batch.slice(0, 5).map((item) => ({
-        id: item.id,
-        type: item.type,
-        score: item.score,
-      })),
-      layout: 'quick links',
+      items: hiddenCandidates.map(candidateToItem),
+      layout: 'hidden',
     })
 
-    // create a section for each long item
-    sections.push(
-      ...batch.slice(5).map((item) => ({
-        items: [{ id: item.id, type: item.type, score: item.score }],
-        layout: 'long',
-      }))
-    )
-  }
+  batches.short.length &&
+    sections.push({
+      items: batches.short.flat().map(candidateToItem),
+      layout: 'quick_links',
+    })
+
+  batches.long.length &&
+    sections.push({
+      items: batches.long.flat().map(candidateToItem),
+      layout: 'top_picks',
+    })
+
+  justAddedCandidates &&
+    sections.push({
+      items: justAddedCandidates.map(candidateToItem),
+      layout: 'just_added',
+    })
 
   return sections
 }
+
+// use prometheus to monitor the latency of each step
+const latency = new client.Histogram({
+  name: 'omnivore_update_home_latency',
+  help: 'Latency of update home job',
+  labelNames: ['step'],
+  buckets: [0.1, 0.5, 1, 2, 5, 10],
+})
+
+latency.observe(10)
+
+registerMetric(latency)
 
 export const updateHome = async (data: UpdateHomeJobData) => {
   const { userId, cursor } = data
@@ -395,42 +511,41 @@ export const updateHome = async (data: UpdateHomeJobData) => {
 
     logger.info(`Updating home for user ${userId}`)
 
-    logger.profile('selecting')
-    const candidates = await selectCandidates(user)
-    logger.profile('selecting', {
-      level: 'info',
-      message: `Found ${candidates.length} candidates`,
-    })
+    let end = latency.startTimer({ step: 'justAdded' })
+    const justAddedCandidates = await getJustAddedCandidates(userId)
+    end()
 
-    if (candidates.length === 0) {
+    logger.info(`Found ${justAddedCandidates.length} just added candidates`)
+
+    end = latency.startTimer({ step: 'select' })
+    const candidates = await selectCandidates(
+      user,
+      justAddedCandidates.map((c) => c.id)
+    )
+    end()
+    logger.info(`Found ${candidates.length} candidates`)
+
+    if (!justAddedCandidates.length && !candidates.length) {
       logger.info('No candidates found')
-      return
     }
 
     // TODO: integrity check on candidates
 
-    logger.profile('ranking')
+    end = latency.startTimer({ step: 'ranking' })
     const rankedCandidates = await rankCandidates(userId, candidates)
-    logger.profile('ranking', {
-      level: 'info',
-      message: `Ranked ${rankedCandidates.length} candidates`,
-    })
+    end()
 
-    // TODO: filter candidates
+    logger.info(`Ranked ${rankedCandidates.length} candidates`)
 
-    logger.profile('mixing')
-    const rankedSections = mixHomeItems(rankedCandidates)
-    logger.profile('mixing', {
-      level: 'info',
-      message: `Created ${rankedSections.length} sections`,
-    })
+    end = latency.startTimer({ step: 'mixing' })
+    const sections = mixHomeItems(justAddedCandidates, rankedCandidates)
+    end()
 
-    logger.profile('saving')
-    await appendSectionsToHome(userId, rankedSections, cursor)
-    logger.profile('saving', {
-      level: 'info',
-      message: 'Sections appended to home',
-    })
+    logger.info(`Mixed ${sections.length} sections`)
+
+    end = latency.startTimer({ step: 'saving' })
+    await appendSectionsToHome(userId, sections, cursor)
+    end()
 
     logger.info('Home updated for user', { userId })
   } catch (error) {

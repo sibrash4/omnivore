@@ -16,6 +16,8 @@ export type LinkedItemCardAction =
   | 'open-notebook'
   | 'unsubscribe'
   | 'update-item'
+  | 'move-to-inbox'
+  | 'refresh'
 
 export type LinkedItemCardProps = {
   item: LibraryItemNode
@@ -31,4 +33,6 @@ export type LinkedItemCardProps = {
 
   isHovered?: boolean
   isLoading?: boolean
+
+  legacyLayout?: boolean
 }

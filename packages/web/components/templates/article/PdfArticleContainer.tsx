@@ -448,11 +448,16 @@ export default function PdfArticleContainer(
             document.dispatchEvent(new Event('openOriginalArticle'))
             break
           case 'u':
+            const navReturn = window.localStorage.getItem('nav-return')
+            if (navReturn) {
+              window.location.assign(navReturn)
+              return
+            }
             const query = window.sessionStorage.getItem('q')
             if (query) {
-              window.location.assign(`/home?${query}`)
+              window.location.assign(`/l/home?${query}`)
             } else {
-              window.location.replace(`/home`)
+              window.location.replace(`/l/home`)
             }
             break
           case 'e':

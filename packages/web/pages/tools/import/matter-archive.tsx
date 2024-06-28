@@ -15,7 +15,7 @@ import Dropzone from 'react-dropzone'
 
 import { SyncLoader } from 'react-spinners'
 import { theme } from '../../../components/tokens/stitches.config'
-import { Tray } from 'phosphor-react'
+import { Tray } from '@phosphor-icons/react'
 
 type UploadState = 'none' | 'uploading' | 'completed'
 
@@ -190,7 +190,7 @@ export default function ImportUploader(): JSX.Element {
             <VStack css={{ width: '100%' }} alignment="center">
               <Button
                 onClick={(e) => {
-                  window.location.href = '/home'
+                  window.location.href = '/l/home'
                   e.preventDefault()
                 }}
                 style="ctaDarkYellow"

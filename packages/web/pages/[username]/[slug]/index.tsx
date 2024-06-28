@@ -89,9 +89,14 @@ export default function Home(): JSX.Element {
     //     return
     //   }
     // }
+    const navReturn = window.localStorage.getItem('nav-return')
+    if (navReturn) {
+      router.push(navReturn)
+      return
+    }
+
     const query = window.sessionStorage.getItem('q')
     router.push(`/home?${query}`)
-    // router.push(`/home`)
   }, [router, viewerData, article])
 
   const goPreviousOrHome = useCallback(() => {
@@ -277,7 +282,7 @@ export default function Home(): JSX.Element {
           showErrorToast('Error deleting page', { position: 'bottom-right' })
         }
       })
-      router.push(`/home`)
+      goNextOrHome()
     }
   }, [article, cache, mutate, router])
 
@@ -298,6 +303,11 @@ export default function Home(): JSX.Element {
         name: 'Return to library',
         shortcut: ['u'],
         perform: () => {
+          const navReturn = window.localStorage.getItem('nav-return')
+          if (navReturn) {
+            router.push(navReturn)
+            return
+          }
           const query = window.sessionStorage.getItem('q')
           if (query) {
             router.push(`/home?${query}`)

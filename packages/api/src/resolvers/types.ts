@@ -13,7 +13,7 @@ import { PublicItem } from '../entity/public_item'
 import { Recommendation } from '../entity/recommendation'
 import { Subscription } from '../entity/subscription'
 import { UploadFile } from '../entity/upload_file'
-import { HomeItem } from '../generated/graphql'
+import { User } from '../entity/user'
 import { PubsubClient } from '../pubsub'
 
 export interface Claims {
@@ -58,11 +58,9 @@ export interface RequestContext {
     libraryItems: DataLoader<string, LibraryItem | undefined>
     publicItems: DataLoader<string, PublicItem | undefined>
     subscriptions: DataLoader<string, Subscription | undefined>
+    users: DataLoader<string, User | undefined>
+    highlightLabels: DataLoader<string, Label[]>
   }
 }
 
 export type ResolverContext = ApolloContext<RequestContext>
-
-export type WithDataSourcesContext = {
-  uid: string
-} & ResolverContext
