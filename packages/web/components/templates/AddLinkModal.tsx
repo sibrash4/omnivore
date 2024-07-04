@@ -6,6 +6,7 @@ import { showErrorToast, showSuccessToast } from '../../lib/toastHelpers'
 import { Button } from '../elements/Button'
 import { FormInput } from '../elements/FormElements'
 import { Box, HStack, SpanBox, VStack } from '../elements/LayoutPrimitives'
+import * as ScrollArea from '@radix-ui/react-scroll-area'
 import {
   ModalContent,
   ModalOverlay,
@@ -274,6 +275,7 @@ const UploadOPMLTab = (): JSX.Element => {
   )
 }
 
+
 const UploadPDFTab = (): JSX.Element => {
   return (
     <VStack
@@ -281,22 +283,32 @@ const UploadPDFTab = (): JSX.Element => {
       distribution="start"
       css={{ height: '180px', width: '100%' }}
     >
-      <UploadPad
-        info={
-          <HStack
-            distribution="start"
-            alignment="center"
-            css={{ gap: '5px', whiteSpace: 'pre-line' }}
-          >
-            <Info size={14} color="#007AFF" />
-            PDFs have a maximum size of 8MB.{' '}
-          </HStack>
-        }
-        description="Drag PDFs here to add to your library"
-        accept={{
-          'application/pdf': ['.pdf'],
-        }}
-      />
+      <ScrollArea.Root className="h-full w-full overflow-hidden">
+        <ScrollArea.Viewport className="h-full w-full">
+          <UploadPad
+            info={
+              <HStack
+                distribution="start"
+                alignment="center"
+                css={{ gap: '5px', whiteSpace: 'pre-line' }}
+              >
+                <Info size={14} color="#007AFF" />
+                PDFs have a maximum size of 8MB.{' '}
+              </HStack>
+            }
+            description="Drag PDFs here to add to your library"
+            accept={{
+              'application/pdf': ['.pdf'],
+            }}
+          />
+        </ScrollArea.Viewport>
+        <ScrollArea.Scrollbar
+          className="flex touch-none select-none p-0.5 bg-blackA6 transition-colors duration-[160ms] ease-out hover:bg-blackA8 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:h-2.5"
+          orientation="vertical"
+        >
+          <ScrollArea.Thumb className="flex-1 bg-mauve10 rounded-[10px] relative before:content-[''] before:absolute before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:w-full before:h-full before:min-w-[44px] before:min-h-[44px]" />
+        </ScrollArea.Scrollbar>
+      </ScrollArea.Root>
     </VStack>
   )
 }
