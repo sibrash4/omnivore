@@ -20,6 +20,7 @@ import {
   ModalTitleBar,
 } from '../elements/ModalPrimitives'
 import { theme } from '../tokens/stitches.config'
+import { ScrollArea } from '../elements/ScrollArea'
 
 const DragnDropContainer = styled('div', {
   width: '100%',
@@ -283,12 +284,15 @@ export function UploadModal(props: UploadModalProps): JSX.Element {
           px: '24px',
           minWidth: '650px',
           minHeight: '430px',
+          maxHeight: '80vh',
+          display: 'flex',
+          flexDirection: 'column',
         }}
         onInteractOutside={(event) => {
           event.preventDefault()
         }}
       >
-        <VStack distribution="start">
+        <VStack distribution="start" css={{ flex: 1, overflow: 'hidden' }}>
           <ModalTitleBar
             title="Upload file"
             onOpenChange={props.onOpenChange}
@@ -328,7 +332,7 @@ export function UploadModal(props: UploadModalProps): JSX.Element {
             }) => (
               <div
                 {...getRootProps({ className: 'dropzone' })}
-                style={{ height: '100%', width: '100%' }}
+                style={{ height: '100%', width: '100%', position: 'relative' }}
               >
                 <DragnDropContainer>
                   <DragnDropStyle>
@@ -378,71 +382,73 @@ export function UploadModal(props: UploadModalProps): JSX.Element {
                       </VStack>
                     </DragnDropIndicator>
                   </DragnDropStyle>
-                  <VStack css={{ width: '100%', mt: '25px', gap: '5px' }}>
-                    {uploadFiles.map((file) => {
-                      return (
-                        <HStack
-                          key={file.id}
-                          css={{
-                            width: '100%',
-                            height: '54px',
-                            border: '1px solid $grayBorder',
-                            borderRadius: '5px',
-                            padding: '15px',
-                            gap: '10px',
-                            color: '$thTextContrast',
-                          }}
-                          alignment="center"
-                          distribution="start"
-                        >
-                          <Box
+                  <ScrollArea css={{ width: '100%', mt: '25px', maxHeight: '200px' }}>
+                    <VStack css={{ gap: '5px' }}>
+                      {uploadFiles.map((file) => {
+                        return (
+                          <HStack
+                            key={file.id}
                             css={{
-                              width: '280px',
-                              maxLines: '1',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              maxWidth: '200px',
-                              overflow: 'hidden',
-                              fontSize: '14px',
-                              fontWeight: 'bold',
+                              width: '100%',
+                              height: '54px',
+                              border: '1px solid $grayBorder',
+                              borderRadius: '5px',
+                              padding: '15px',
+                              gap: '10px',
+                              color: '$thTextContrast',
                             }}
+                            alignment="center"
+                            distribution="start"
                           >
-                            {file.name}
-                          </Box>
-                          {file.status != 'inprogress' ? (
-                            <HStack
-                              alignment="center"
-                              css={{ marginLeft: 'auto', fontSize: '14px' }}
+                            <Box
+                              css={{
+                                width: '280px',
+                                maxLines: '1',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                maxWidth: '200px',
+                                overflow: 'hidden',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                              }}
                             >
-                              {file.status == 'success' && file.openUrl && (
-                                <a href={file.openUrl}>Read Now</a>
-                              )}
-                              {file.status == 'success' && !file.openUrl && (
-                                <span>
-                                  {file.message || 'Your import has started'}
-                                </span>
-                              )}
-                              {file.status == 'error' && (
-                                <SpanBox css={{ color: 'red' }}>
-                                  Error Uploading
-                                </SpanBox>
-                              )}
-                            </HStack>
-                          ) : (
-                            <ProgressRoot value={file.progress} max={100}>
-                              <ProgressIndicator
-                                style={{
-                                  transform: `translateX(-${
-                                    100 - file.progress
-                                  }%)`,
-                                }}
-                              />{' '}
-                            </ProgressRoot>
-                          )}
-                        </HStack>
-                      )
-                    })}
-                  </VStack>
+                              {file.name}
+                            </Box>
+                            {file.status != 'inprogress' ? (
+                              <HStack
+                                alignment="center"
+                                css={{ marginLeft: 'auto', fontSize: '14px' }}
+                              >
+                                {file.status == 'success' && file.openUrl && (
+                                  <a href={file.openUrl}>Read Now</a>
+                                )}
+                                {file.status == 'success' && !file.openUrl && (
+                                  <span>
+                                    {file.message || 'Your import has started'}
+                                  </span>
+                                )}
+                                {file.status == 'error' && (
+                                  <SpanBox css={{ color: 'red' }}>
+                                    Error Uploading
+                                  </SpanBox>
+                                )}
+                              </HStack>
+                            ) : (
+                              <ProgressRoot value={file.progress} max={100}>
+                                <ProgressIndicator
+                                  style={{
+                                    transform: `translateX(-${
+                                      100 - file.progress
+                                    }%)`,
+                                  }}
+                                />{' '}
+                              </ProgressRoot>
+                            )}
+                          </HStack>
+                        )
+                      })}
+                    </VStack>
+                  </ScrollArea>
                 </DragnDropContainer>
                 <input {...getInputProps()} />
               </div>
